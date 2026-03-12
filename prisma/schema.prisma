@@ -1,0 +1,303 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
+  name                  String
+  email                 String                 @unique
+  password              String
+  role                  UserRole               @default(USER)
+  phone                 String
+  country               String?
+  status                UserStatus             @default(ACTIVE)
+  photo                 String?
+  gender                UserGender             @default(MALE)
+  city                  String?
+  street                String?
+  postalCode            String?
+  isEmailVerified       Boolean                @default(false)
+  isKycVerified         Boolean                @default(false)
+  referralToken         String?
+  affiliate             Affiliate?
+  kyc                   Kyc?
+  otp                   String?
+  otpExpireAt           DateTime?
+  challengeStages       ChallengeStage[]
+  challenges            Challenge[]
+  payments              Payment[]
+  affiliateTransactions AffiliateTransaction[]
+  withdraws             Withdraw[]
+
+  @@map("users")
+}
+
+model Kyc {
+  id                      String          @id @default(auto()) @map("_id") @db.ObjectId
+  country                 String
+  firstDocumentType       KycDocumentType
+  firstDocumentFrontSide  String
+  firstDocumentBackSide   String?
+  secondDocumentType      String
+  secondDocumentFrontSide String
+  secondDocumentBackSide  String?
+  status                  KycStatus       @default(PENDING)
+  userId                  String          @unique @db.ObjectId
+  user                    User            @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("kyc")
+}
+
+model Phase {
+  id                        String           @id @default(auto()) @map("_id") @db.ObjectId
+  name                      String
+  tradingPeriod             String           @default("unlimited")
+  leverage                  String           @default("1:200")
+  minTradingDays            Int              @default(0)
+  maxDailyLossRate          Float            @default(0)
+  maxOverallLossRate        Float            @default(15)
+  profitTargetRate          Float            @default(0)
+  holdOverWeekend           Boolean          @default(true)
+  tradingEAS                Boolean          @default(true)
+  newsTrading               Boolean          @default(true)
+  profitShareRate           Float            @default(0)
+  firstPayoutDays           Int              @default(0)
+  isRequiredRegistrationFee Boolean          @default(true)
+  isRegistrationFeeRefund   Boolean          @default(false)
+  evaluationId              String?          @db.ObjectId
+  evaluation                Evaluation?      @relation(fields: [evaluationId], references: [id])
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
+  challengeStages           ChallengeStage[]
+
+  @@map("phases")
+}
+
+model Evaluation {
+  id     String  @id @default(auto()) @map("_id") @db.ObjectId
+  code   String  @unique
+  label  String  @unique
+  phases Phase[]
+
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  challenges Challenge[]
+  payments   Payment[]
+
+  @@map("evaluations")
+}
+
+model ChallengeStage {
+  id             String               @id @default(auto()) @map("_id") @db.ObjectId
+  accountNumber  String               @unique
+  login          String
+  password       String
+  server         String
+  traderPlatform TradePlatformType
+  status         ChallengeStateStatus @default(ON_GOING)
+  endDate        DateTime?
+
+  // phase
+  phaseId String @db.ObjectId
+  phase   Phase  @relation(fields: [phaseId], references: [id])
+
+  // Profit
+  todayProfit     Float @default(0)
+  todayProfitRate Float @default(0)
+
+  // Loss
+  todayLoss     Float @default(0)
+  todayLossRate Float @default(0)
+
+  // Trading days
+  tradingDays Int @default(0)
+
+  // Equity
+  equity           Float  @default(0)
+  equityRate       Float  @default(0)
+  lastEquityUpdate String
+
+  cashbackLot Float @default(0)
+
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id])
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  challengeId String    @db.ObjectId
+  challenge   Challenge @relation(fields: [challengeId], references: [id])
+
+  @@map("challenge_stages")
+}
+
+model Challenge {
+  id              String            @id @default(auto()) @map("_id") @db.ObjectId
+  status          ChallengeStatus   @default(PENDING)
+  tradePlatform   TradePlatformType
+  price           Float             @default(0)
+  fundedAmount    Float             @default(0)
+  balance         Float             @default(0)
+  maxProfit       Float             @default(0)
+  maxProfitRate   Float             @default(0)
+  maxLoss         Float             @default(0)
+  maxLossRate     Float             @default(0)
+  totalProfit     Float             @default(0)
+  totalProfitRate Float             @default(0)
+  totalLoss       Float             @default(0)
+  totalLossRate   Float             @default(0)
+  evaluationId    String            @db.ObjectId
+  evaluation      Evaluation        @relation(fields: [evaluationId], references: [id])
+  paymentId       String            @db.ObjectId
+  payment         Payment           @relation(fields: [paymentId], references: [id])
+  failedDate      String?
+  userId          String            @db.ObjectId
+  user            User              @relation(fields: [userId], references: [id])
+  challengeStages ChallengeStage[]
+  currentStageId  String            @db.ObjectId
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@map("challenges")
+}
+
+model Payment {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  amount         Float
+  paymentMethod  String
+  status         PaymentStatus @default(UNPAID)
+  transactionId  String?
+  billingAddress String?
+  invoiceId      String?
+  userId         String        @db.ObjectId
+  user           User          @relation(fields: [userId], references: [id])
+  evaluationId   String?
+  evaluation     Evaluation?   @relation(fields: [evaluationId], references: [id])
+  challenges     Challenge[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("payments")
+}
+
+model Affiliate {
+  id                String                 @id @default(auto()) @map("_id") @db.ObjectId
+  views             Int                    @default(0)
+  code              String                 @unique
+  totalEarning      Float                  @default(0)
+  availableWithdraw Float                  @default(0)
+  rewardRate        Float                  @default(0)
+  converted         Float                  @default(0)
+  nextPayout        DateTime?
+  ballance          Float                  @default(0)
+  userId            String                 @unique @db.ObjectId
+  user              User                   @relation(fields: [userId], references: [id])
+  transaction       AffiliateTransaction[]
+
+  @@map("affiliates")
+}
+
+model AffiliateTransaction {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  affiliateId    String    @db.ObjectId
+  affiliate      Affiliate @relation(fields: [affiliateId], references: [id])
+  referredUserId String    @db.ObjectId
+  referredUser   User      @relation(fields: [referredUserId], references: [id])
+  amount         Float
+  rewardRate     Float
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("affiliate_transactions")
+}
+
+model Withdraw {
+  id             String         @id @default(auto()) @map("_id") @db.ObjectId
+  amount         Float
+  accountId      String?
+  status         WithdrawStatus @default(PENDING)
+  withdrawMethod WithdrawMethod
+  userId         String         @db.ObjectId
+  user           User           @relation(fields: [userId], references: [id])
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@map("withdraws")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+}
+
+enum UserGender {
+  MALE
+  FEMALE
+}
+
+enum TradePlatformType {
+  c_trader
+  meta_trader_4
+  meta_trader_5
+}
+
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum KycDocumentType {
+  PASSPORT
+  ID_CARD
+  DRIVER_LICENSE
+}
+
+enum ChallengeStateStatus {
+  PASSED
+  FAILED
+  ON_GOING
+}
+
+enum ChallengeStatus {
+  PENDING
+  ACTIVE
+  DEACTIVATE
+}
+
+enum PaymentStatus {
+  PAID
+  UNPAID
+  REFUNDED
+}
+
+enum PaymentIntentStatus {
+  SUCCEED
+  FAILED
+  PENDING
+}
+
+enum WithdrawStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum WithdrawMethod {
+  BANK
+  CRYPTO
+  PAYPAL
+}
