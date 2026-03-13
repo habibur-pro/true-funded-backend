@@ -21,6 +21,11 @@ export default {
     email: process.env.EMAIL,
     app_pass: process.env.APP_PASS,
   },
+  crypto: {
+    api_key: process.env.CRYPTO_API_KEY,
+    shop_id: process.env.CRYPTO_SHOP_ID,
+    secret_key: process.env.CRYPTO_SECRET_KEY,
+  },
 
   // s3: {
   //   aws_s3_region: process.env.AWS_S3_REGION,

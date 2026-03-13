@@ -9,33 +9,35 @@ const router = express.Router();
 router.post(
   "/signup",
   validateRequest(AuthValidations.SignupValidation),
-  AuthControllers.signup
+  AuthControllers.signup,
 );
 
 // user login route
 router.post(
   "/login",
   validateRequest(AuthValidations.loginValidationSchema),
-  AuthControllers.loginUser
+  AuthControllers.loginUser,
 );
 
 router.post(
   "/change-password",
   validateRequest(AuthValidations.changePasswordValidationSchema),
   auth(),
-  AuthControllers.changePassword
+  AuthControllers.changePassword,
 );
 
 router.post(
   "/forgot-password",
   validateRequest(AuthValidations.forgotPasswordSchema),
-  AuthControllers.forgotPassword
+  AuthControllers.forgotPassword,
 );
 
 router.post(
   "/reset-password",
   validateRequest(AuthValidations.resetPasswordSChema),
-  AuthControllers.resetPassword
+  AuthControllers.resetPassword,
 );
+router.post("/verify-otp", AuthControllers.verifyOtp);
+router.post("/resend-otp", AuthControllers.resendOtp);
 
 export const AuthRoutes = router;

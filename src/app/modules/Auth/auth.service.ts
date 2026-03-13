@@ -9,6 +9,7 @@ import emailSender from "../../../helpers/emailSender";
 import { jwtHelpers } from "../../../helpers/jwtHelpers";
 import prisma from "../../../shared/prisma";
 import { AuthUtils } from "./auth.utils";
+import { randomGenerator, timeFrom } from "../../../utils/randomGenerator";
 
 const loginUser = async (payload: { email: string; password: string }) => {
   const userData = await prisma.user.findUnique({
@@ -36,6 +37,26 @@ const loginUser = async (payload: { email: string; password: string }) => {
 
   if (!isCorrectPassword) {
     throw new Error("Password incorrect!");
+  }
+
+  if (!userData.isEmailVerified) {
+    const randomOtp = randomGenerator(6);
+    const otpExpiry = timeFrom(5);
+
+    const html = AuthUtils.createEmailVerificationTemplate(randomOtp);
+
+    await prisma.user.update({
+      where: { id: userData.id },
+      data: {
+        otp: randomOtp,
+        otpExpireAt: otpExpiry,
+      },
+    });
+    await emailSender("Verify your email", userData.email, html);
+    return {
+      requiresVerification: true,
+      message: "Please check your email to verify your account",
+    };
   }
 
   const accessToken = jwtHelpers.generateToken(
@@ -67,6 +88,7 @@ const loginUser = async (payload: { email: string; password: string }) => {
   return {
     accessToken,
     refreshToken,
+    requiresVerification: false,
     message: "User logged in successfully",
   };
 };
@@ -209,8 +231,8 @@ const signup = async (payload: User) => {
         data: userData,
       });
 
-      const randomOtp = Math.floor(1000 + Math.random() * 9000).toString();
-      const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
+      const randomOtp = randomGenerator(6);
+      const otpExpiry = timeFrom(5);
 
       const html = AuthUtils.createEmailVerificationTemplate(randomOtp);
 
@@ -222,7 +244,7 @@ const signup = async (payload: User) => {
         },
       });
       await emailSender("Verify your email", user.email, html);
-      return { message: "signing up successfully" };
+      return { message: "A email otp sent to your email. please verify" };
     });
     return result;
   } catch (error: any) {
@@ -234,10 +256,99 @@ const signup = async (payload: User) => {
   }
 };
 
+const verifyOtp = async (otp: string) => {
+  const user = await prisma.user.findFirst({
+    where: {
+      otp,
+    },
+  });
+  if (!user) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Invalid otp");
+  }
+
+  const now = new Date();
+  if (user.otpExpireAt && user.otpExpireAt < now) {
+    await prisma.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        isEmailVerified: true,
+        otp: null,
+        otpExpireAt: null,
+      },
+    });
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid otp");
+  }
+
+  await prisma.user.update({
+    where: {
+      id: user.id,
+    },
+    data: {
+      isEmailVerified: true,
+      otp: null,
+      otpExpireAt: null,
+    },
+  });
+
+  const jwtPayload = {
+    id: user.id,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    email: user.email,
+    role: user.role,
+    photo: user.photo || null,
+  };
+
+  const accessToken = jwtHelpers.generateToken(
+    jwtPayload,
+    config.jwt.jwt_secret as Secret,
+    (config.jwt.expires_in as string) || "7d",
+  );
+
+  const refreshToken = jwtHelpers.generateToken(
+    jwtPayload,
+    config.jwt.refresh_token_secret as Secret,
+    config.jwt.refresh_token_expires_in as string,
+  );
+
+  return {
+    accessToken,
+    refreshToken,
+    message: "Otp verified successfully",
+  };
+};
+
+const resendOtp = async (email: string) => {
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) {
+    throw new ApiError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  const randomOtp = randomGenerator(6);
+  const otpExpiry = timeFrom(5);
+
+  const html = AuthUtils.createEmailVerificationTemplate(randomOtp);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      otp: randomOtp,
+      otpExpireAt: otpExpiry,
+    },
+  });
+
+  await emailSender("Verify your email", user.email, html);
+  return { message: "A email otp sent to your email. please verify" };
+};
+
 export const AuthServices = {
   signup,
   loginUser,
   changePassword,
   forgotPassword,
   resetPassword,
+  verifyOtp,
+  resendOtp,
 };

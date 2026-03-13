@@ -33,7 +33,7 @@ const changePassword = catchAsync(async (req: Request, res: Response) => {
   const result = await AuthServices.changePassword(
     userId,
     newPassword,
-    oldPassword
+    oldPassword,
   );
   sendResponse(res, {
     success: true,
@@ -76,10 +76,42 @@ const signup = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const verifyOtp = catchAsync(async (req: Request, res: Response) => {
+  const result = await AuthServices.verifyOtp(req.body.otp);
+
+  if (result.refreshToken) {
+    // Set refresh token in cookies for verified users
+    res.cookie("refreshToken", result.refreshToken, {
+      httpOnly: true,
+      secure: config.env === "production",
+      sameSite: "strict",
+    });
+  }
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Otp verified successfully",
+    data: result.accessToken ? { accessToken: result.accessToken } : {},
+  });
+});
+const resendOtp = catchAsync(async (req: Request, res: Response) => {
+  const result = await AuthServices.resendOtp(req.body.email);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Otp sent successfully",
+    data: result,
+  });
+});
+
 export const AuthControllers = {
   loginUser,
   changePassword,
   forgotPassword,
   resetPassword,
   signup,
+  verifyOtp,
+  resendOtp,
 };

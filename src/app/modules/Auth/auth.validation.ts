@@ -34,8 +34,7 @@ const SignupValidation = z.object({
       message: "Valid email is required.",
     }),
     phone: z.string().min(5),
-    hospitalId: z.string(),
-    role: z.enum(Object.values(UserRole) as [string, ...string[]]),
+    country: z.string(),
     password: z.string().min(6, {
       message: "Password must be at least 6 characters long.",
     }),

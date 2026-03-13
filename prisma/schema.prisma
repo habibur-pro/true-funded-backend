@@ -9,7 +9,8 @@ datasource db {
 
 model User {
   id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
-  name                  String
+  firstName             String
+  lastName              String?
   email                 String                 @unique
   password              String
   role                  UserRole               @default(USER)
@@ -28,6 +29,7 @@ model User {
   kyc                   Kyc?
   otp                   String?
   otpExpireAt           DateTime?
+  isDeleted             Boolean                @default(false)
   challengeStages       ChallengeStage[]
   challenges            Challenge[]
   payments              Payment[]
@@ -57,35 +59,34 @@ model Kyc {
 }
 
 model Phase {
-  id                        String           @id @default(auto()) @map("_id") @db.ObjectId
-  name                      String
-  tradingPeriod             String           @default("unlimited")
-  leverage                  String           @default("1:200")
-  minTradingDays            Int              @default(0)
-  maxDailyLossRate          Float            @default(0)
-  maxOverallLossRate        Float            @default(15)
-  profitTargetRate          Float            @default(0)
-  holdOverWeekend           Boolean          @default(true)
-  tradingEAS                Boolean          @default(true)
-  newsTrading               Boolean          @default(true)
-  profitShareRate           Float            @default(0)
-  firstPayoutDays           Int              @default(0)
-  isRequiredRegistrationFee Boolean          @default(true)
-  isRegistrationFeeRefund   Boolean          @default(false)
-  evaluationId              String?          @db.ObjectId
-  evaluation                Evaluation?      @relation(fields: [evaluationId], references: [id])
-  createdAt                 DateTime         @default(now())
-  updatedAt                 DateTime         @updatedAt
+  id                        String            @id @default(auto()) @map("_id") @db.ObjectId
+  name                      String            @unique
+  tradingPeriod             String            @default("unlimited")
+  leverage                  String            @default("1:200")
+  minTradingDays            Int               @default(0)
+  maxDailyLossRate          Float             @default(0)
+  maxOverallLossRate        Float             @default(15)
+  profitTargetRate          Float             @default(0)
+  holdOverWeekend           Boolean           @default(true)
+  tradingEAS                Boolean           @default(true)
+  newsTrading               Boolean           @default(true)
+  profitShareRate           Float             @default(0)
+  firstPayoutDays           Int               @default(0)
+  isRequiredRegistrationFee Boolean           @default(true)
+  isRegistrationFeeRefund   Boolean           @default(false)
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
   challengeStages           ChallengeStage[]
+  evaluationPhases          EvaluationPhase[]
 
   @@map("phases")
 }
 
 model Evaluation {
-  id     String  @id @default(auto()) @map("_id") @db.ObjectId
-  code   String  @unique
-  label  String  @unique
-  phases Phase[]
+  id               String            @id @default(auto()) @map("_id") @db.ObjectId
+  code             String            @unique
+  name             String            @unique
+  evaluationPhases EvaluationPhase[]
 
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
@@ -95,14 +96,28 @@ model Evaluation {
   @@map("evaluations")
 }
 
+model EvaluationPhase {
+  id           String @id @default(auto()) @map("_id") @db.ObjectId
+  evaluationId String @db.ObjectId
+  phaseId      String @db.ObjectId
+
+  evaluation Evaluation @relation(fields: [evaluationId], references: [id])
+  phase      Phase      @relation(fields: [phaseId], references: [id])
+
+  order Int?
+
+  @@unique([evaluationId, phaseId])
+  @@map("evaluation_phases")
+}
+
 model ChallengeStage {
   id             String               @id @default(auto()) @map("_id") @db.ObjectId
-  accountNumber  String               @unique
-  login          String
-  password       String
-  server         String
+  accountNumber  String?
+  login          String?
+  password       String?
+  server         String?
   traderPlatform TradePlatformType
-  status         ChallengeStateStatus @default(ON_GOING)
+  status         ChallengeStateStatus @default(PENDING)
   endDate        DateTime?
 
   // phase
@@ -121,9 +136,9 @@ model ChallengeStage {
   tradingDays Int @default(0)
 
   // Equity
-  equity           Float  @default(0)
-  equityRate       Float  @default(0)
-  lastEquityUpdate String
+  equity           Float     @default(0)
+  equityRate       Float     @default(0)
+  lastEquityUpdate DateTime?
 
   cashbackLot Float @default(0)
 
@@ -161,7 +176,7 @@ model Challenge {
   userId          String            @db.ObjectId
   user            User              @relation(fields: [userId], references: [id])
   challengeStages ChallengeStage[]
-  currentStageId  String            @db.ObjectId
+  currentStageId  String?           @db.ObjectId
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
@@ -172,7 +187,7 @@ model Payment {
   id             String        @id @default(auto()) @map("_id") @db.ObjectId
   amount         Float
   paymentMethod  String
-  status         PaymentStatus @default(UNPAID)
+  status         PaymentStatus @default(PENDING)
   transactionId  String?
   billingAddress String?
   invoiceId      String?
@@ -233,6 +248,23 @@ model Withdraw {
   @@map("withdraws")
 }
 
+model AccountCredentials {
+  id           String            @id @default(auto()) @map("_id") @db.ObjectId
+  fundedAmount Int
+  platform     TradePlatformType
+
+  accountNumber String  @unique
+  login         String
+  password      String
+  server        String
+  isUsed        Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("account_credentials")
+}
+
 enum UserRole {
   USER
   ADMIN
@@ -267,6 +299,7 @@ enum KycDocumentType {
 }
 
 enum ChallengeStateStatus {
+  PENDING
   PASSED
   FAILED
   ON_GOING
@@ -279,8 +312,9 @@ enum ChallengeStatus {
 }
 
 enum PaymentStatus {
-  PAID
-  UNPAID
+  PENDING
+  SUCCEED
+  FAILED
   REFUNDED
 }
 

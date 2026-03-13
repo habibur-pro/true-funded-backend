@@ -3,7 +3,8 @@ import express from "express";
 import { AuthRoutes } from "../modules/Auth/auth.routes";
 import { UserRoutes } from "../modules/User/user.route";
 import { ImageRoutes } from "../modules/Image/Image.route";
-import { PostRoutes } from "../modules/Post/Post.route";
+import { OrderRoutes } from "../modules/Order/order.router";
+import { PaymentRoutes } from "../modules/Payment/payment.route";
 
 // import { paymentRoutes } from "../modules/Payment/payment.route";
 
@@ -22,6 +23,14 @@ const moduleRoutes = [
   {
     path: "/files",
     route: ImageRoutes,
+  },
+  {
+    path: "/orders",
+    route: OrderRoutes,
+  },
+  {
+    path: "/payments",
+    route: PaymentRoutes,
   },
 ];
 
