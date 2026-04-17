@@ -243,10 +243,15 @@ const signup = async (payload: User) => {
           otpExpireAt: otpExpiry,
         },
       });
-      await emailSender("Verify your email", user.email, html);
-      return { message: "A email otp sent to your email. please verify" };
+
+      return {
+        message: "A email otp sent to your email. please verify",
+        html,
+        email: user.email,
+      };
     });
-    return result;
+    await emailSender("Verify your email", result.email, result.html);
+    return { message: result.message };
   } catch (error: any) {
     console.log("error", error);
     throw new ApiError(
