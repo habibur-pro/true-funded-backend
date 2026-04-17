@@ -14,7 +14,7 @@ const emailSender = async (subject: string, email: string, html: string) => {
   const emailTransport = transporter;
 
   const mailOptions = {
-    from: `"CORVERA" <${config.emailSender.email}>`,
+    from: `"True Funded" <${config.emailSender.email}>`,
     to: email,
     subject,
     html,
@@ -35,7 +35,7 @@ export default emailSender;
 export const emailSenderForContact = async (
   subject: string,
   email: string,
-  html: string
+  html: string,
 ) => {
   const transporter = nodemailer.createTransport({
     service: "gmail",
